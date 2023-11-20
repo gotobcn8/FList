@@ -1,0 +1,5 @@
+module: fl
+models:
+  - textcnn
+  - transformers
+clients: 10
