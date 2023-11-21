@@ -1,5 +1,6 @@
 from loguru import logger
 import models.models
+import models.transformers
 # tianzhen = 'tianzhenaa'
 # logger.exception(f"couldn't find {tianzhen} in models")
 
@@ -19,7 +20,8 @@ def run(args):
     args.server = algorithm_select(etce.algorithm)
     return
 
-def models_select(model_name:str):
+def models_select(args):
+    model_name = args.model_name
     if model_name not in dir(models):
         logger.exception(f"couldn't find {model_name} in models")
     if model_name == 'textcnn':
@@ -27,7 +29,7 @@ def models_select(model_name:str):
         #here should return the nn.Module
         return
     elif model_name == 'transformers':
-        return
+        return transformers.TransformerModel(ntoken=vocab_size,d_model=emb_dim,nhead=8,d_hid=emb_dim,nlayers=2,num_classes=args.num_classes).to()
     
 def algorithm_select(algorithm:str):
     if algorithm == 'Ditto':

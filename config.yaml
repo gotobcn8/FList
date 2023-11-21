@@ -1,5 +1,7 @@
 module: fl
 models:
   - textcnn
-  - transformers
+  - transformers:
+    - vocab: 10
+    - num_classes: 10
 clients: 10
