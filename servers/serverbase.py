@@ -126,8 +126,13 @@ class Server:
         return ids,num_samples,losses
     
     def evaluate(self,acc=None,loss=None):
-        stats = self.test_metrics()
+        test_metrics_res = self.test_metrics()
+        train_metrics_res = self.train_metrics()
         
-    def evaluate(self,acc=None,loss=None):
+        test_acc = sum(test_metrics_res[2]) * 1.0 / sum(test_metrics_res[1])
+        test_auc = sum(test_metrics_res[3]) * 1.0 / sum(test_metrics_res[1])
         
+        train_loss = sum(train_metrics_res[2]) * 1.0 / sum(train_metrics_res[1])
+        corrects = [correct / num for correct,num in zip(test_metrics_res[2],test_metrics_res[1])]
+        accuracies = [acc / num for acc,num in zip(test_metrics_res[3],test_metrics_res[1])]
         
