@@ -21,6 +21,7 @@ class Server:
         self.device = args.device
         self.dataset = args.dataset
         self.num_clients = args.num_clients
+        self.join_ratio = args.join_ratio
         
         self.rs_test_acc = []
         self.rs_test_auc = []
@@ -133,6 +134,25 @@ class Server:
         test_auc = sum(test_metrics_res[3]) * 1.0 / sum(test_metrics_res[1])
         
         train_loss = sum(train_metrics_res[2]) * 1.0 / sum(train_metrics_res[1])
-        corrects = [correct / num for correct,num in zip(test_metrics_res[2],test_metrics_res[1])]
-        accuracies = [acc / num for acc,num in zip(test_metrics_res[3],test_metrics_res[1])]
+        accuracies = [correct / num for correct,num in zip(test_metrics_res[2],test_metrics_res[1])]
+        #about auc, reference:https://zhuanlan.zhihu.com/p/569006692
+        auc_collections = [acc / num for acc,num in zip(test_metrics_res[3],test_metrics_res[1])]
+        
+        if accuracies == None:
+            self.rs_test_acc.append(test_acc)
+        else:
+            accuracies.append(test_acc)
+        
+        if loss == None:
+            self.rs_train_loss.append(train_loss)
+        else:
+            loss.append(train_loss)
+        flogger.Info('server: avg train loss:{:.3f}'.format(train_loss))
+        flogger.Info('server: avg test accuracy:{:.3f}'.format(test_acc))
+        flogger.Info('server: avg test AUC:{:.3f}'.format(test_auc))
+        
+        flogger.Info('server: test accuracy:{:.3f}'.format(np.std(accuracies)))
+        flogger.Info('server test AUC:{:.3f}'.format(np.std(auc_collections)))
+    
+    
         
