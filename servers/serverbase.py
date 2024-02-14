@@ -16,21 +16,33 @@ clogger = logger.bind(sink=sys.stdout)
 clogger.add(sys.stdout, colorize=True)
 
 class Server:
-    def __init__(self,args,times) -> None:
+    def __init__(self,args) -> None:
         self.args = args
-        self.device = args.device
-        self.dataset = args.dataset
-        self.num_clients = args.num_clients
-        self.join_ratio = args.join_ratio
+        self.device = args['device']
+        self.dataset = args['dataset']
+        self.num_clients = args['num_clients']
+        self.join_ratio = args['join_ratio']
+        self.client_drop_rate = args['client_drop_rate']
         
+        self.global_rounds = args['global_rounds']
+        self.time_threthold = args['time_threthold']
         self.rs_test_acc = []
         self.rs_test_auc = []
         self.rs_train_loss = []
-    
+        self.dataset_abs_dir = os.getcwd()
+        self.clients = []
+        self.random_clients_selected = args['random_clients_selected']
+        self.num_join_clients = int(self.num_clients * self.join_ratio)
+        # false temporary
+        self.eval_new_clients = False
+        self.fine_tuning_epoch = 0
+        self.num_new_clients = 0
+        self.algorithm = args['algorithm']
+        
     def set_clients(self,clientObj):
         for i in range(self.num_clients):
-            train_data = read_client_data(self.dataset,i,is_train=True)
-            test_data = read_client_data(self.dataset,i,is_train=False)
+            train_data = read_client_data(self.dataset,i,self.dataset_abs_dir,is_train=True)
+            test_data = read_client_data(self.dataset,i,self.dataset_abs_dir,is_train=False)
             client = clientObj(self.args,id = i,
                                train_samples = len(train_data),
                                test_samples = len(test_data),
@@ -38,8 +50,9 @@ class Server:
             self.clients.append(client)
     
     def select_clients(self):
-        if self.random_join_ratio:
-            self.current_num_join_clients = np.random.choice(self.num_join_clients,self.num_clients+1)
+        logger.info('Starting select clients for server')
+        if self.random_clients_selected:
+            self.current_num_join_clients = np.random.choice(int(self.num_clients * self.join_ratio),self.num_clients+1)
         else:
             self.current_num_join_clients = self.num_join_clients
         selected_clients = list(np.random.choice(self.clients,self.current_num_join_clients,replace=False))
@@ -48,18 +61,18 @@ class Server:
     def send_models(self):
         if len(self.clients) <= 0:
             logger.exception(f"couldn't find {self.clients} in models")
-        
+        logger.debug(type(self.select_clients))
         active_clients = random.sample(
-            self.select_clients,int((1-self.client_drop_rate))
+            self.selected_clients,int((1-self.client_drop_rate))
         )
         
         self.uploaded_ids = []
         self.uploaded_weights = []
         self.uploaded_models = []
-        tot_samples = 0
+        total_samples = 0
         for client in active_clients:
-            client_time_cost = client.train_time_cost['total_cost'] / client.train_time_cost['num_rounds'] + \
-                        client.send_time_cost['total_cost'] / client.send_time_cost['num_rounds']
+            client_time_cost = client.train_time['total_cost'] / client.train_time['rounds'] + \
+                        client.send_time['total_cost'] / client.send_time['rounds']
             if client_time_cost <= self.time_threthold:
                 total_samples += client.train_samples
                 self.uploaded_ids.append(client.id)
@@ -72,14 +85,14 @@ class Server:
     def aggregate_parameters(self):
         self.global_model = copy.deepcopy(self.uploaded_models[0])
         for param in self.global_model.parameters():
-            param.data.zero()
+            param.data.zero_()
         
         for w,client_model in zip(self.uploaded_weights,self.uploaded_models):
             self.add_parameters(w,client_model)
     
     def add_parameters(self,w,client_model):
         for server_param,client_param in zip(self.global_model.parameters(),client_model.parameters()):
-            server_param.data += client_param() * w
+            server_param.data += client_param.data.clone() * w
     
     def save_global_model(self):
         model_path = os.path.join('models',self.dataset)
@@ -89,9 +102,7 @@ class Server:
         torch.save(self.global_model,model_path)
     
     def save_results(self):
-        flogger.info(f'rs_test_acc:{self.rs_test_acc},
-                     rs_test_auc:{self.rs_test_auc},
-                     rs_train_loss:{self.rs_train_loss}')
+        flogger.info(f"rs_test_acc:{self.rs_test_acc},rs_test_auc:{self.rs_test_auc},rs_train_loss:{self.rs_train_loss}")
     
     
     def test_metrics(self):
@@ -138,21 +149,44 @@ class Server:
         #about auc, reference:https://zhuanlan.zhihu.com/p/569006692
         auc_collections = [acc / num for acc,num in zip(test_metrics_res[3],test_metrics_res[1])]
         
-        if accuracies == None:
+        if acc == None:
             self.rs_test_acc.append(test_acc)
         else:
-            accuracies.append(test_acc)
+            acc.append(test_acc)
         
         if loss == None:
             self.rs_train_loss.append(train_loss)
         else:
             loss.append(train_loss)
-        flogger.Info('server: avg train loss:{:.3f}'.format(train_loss))
-        flogger.Info('server: avg test accuracy:{:.3f}'.format(test_acc))
-        flogger.Info('server: avg test AUC:{:.3f}'.format(test_auc))
+        flogger.info('server: avg train loss:{:.3f}'.format(train_loss))
+        flogger.info('server: avg test accuracy:{:.3f}'.format(test_acc))
+        flogger.info('server: avg test AUC:{:.3f}'.format(test_auc))
         
-        flogger.Info('server: test accuracy:{:.3f}'.format(np.std(accuracies)))
-        flogger.Info('server test AUC:{:.3f}'.format(np.std(auc_collections)))
+        flogger.info('server: test accuracy:{:.3f}'.format(np.std(accuracies)))
+        flogger.info('server test AUC:{:.3f}'.format(np.std(auc_collections)))
     
-    
+    def receive_models(self):
+        if len(self.selected_clients) <= 0:
+            clogger.exception("selected clients couldn't 0")
+        
+        self.uploaded_cids = []
+        self.uploaded_weights = []
+        self.uploaded_models = []
+        total_samples = 0
+        for client in self.selected_clients:
+            try:
+                avg_train_time_cost = client.train_time['total_cost'] / client.train_time['rounds']
+                avg_send_time_cost = client.send_time['total_cost'] / client.send_time['rounds']
+                client_time_cost = avg_train_time_cost + avg_send_time_cost
+            except ZeroDivisionError:
+                client_time_cost = 0
+            if client_time_cost > self.time_threthold:
+                continue
+            total_samples += client.train_samples
+            self.uploaded_cids.append(client.id)
+            self.uploaded_weights.append(client.train_samples)
+            self.uploaded_models.append(client.model)
+        
+        for i,w in enumerate(self.uploaded_weights):
+            self.uploaded_weights[i] = w / total_samples
         

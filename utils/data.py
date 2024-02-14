@@ -3,23 +3,25 @@ import numpy as np
 import torch
 
 def read_data(dataset,dir,suffix,idx):
-    '''dir = absolute directory, 
+    '''
+    dir = absolute directory, 
     dataset is dataset name
     suffix is train or test data name
     idx is the indicator
     '''
-    data_dir = os.path.join(dir,dataset,suffix)
-    file = data_dir + str(idx) + '.npz'
-    
-    with open(file,'rb') as f:
+    file_name = suffix+str(idx)+'.npz'
+    full_file_name = os.path.join(dir,dataset,file_name)
+    # current_file_path = os.path.abspath(__file__)
+    # print(current_file_path)
+    with open(full_file_name,'rb') as f:
         data = np.load(f,allow_pickle = True)['data'].tolist()
     return data
 
-def read_client_data(dataset,idx,is_train):
+def read_client_data(dataset,idx,dir,is_train):
     if dataset == 'agnews':
-        return read_client_data_text(dataset,idx,is_train)
+        return read_client_data_text(dataset,idx,dir,is_train)
     
-def read_client_data_text(dataset,idx,is_train):
+def read_client_data_text(dataset,idx,dir,is_train):
     read_data_info = []
     if is_train:
         read_data_info = read_data(dataset,dir,'train',idx)

@@ -1,4 +1,4 @@
-import utils.read as read
+from ..utils.read import read
 import pytest
 from loguru import logger
 

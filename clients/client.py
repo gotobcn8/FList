@@ -10,25 +10,39 @@ import os
 import utils.data as data
  
 class ClientBase:
-    def __init__(self,args,id,train_samples,test_samples):
-        '''**kwargs是Python中的一种语法，它允许函数接收任意数量的关键字参数。这些参数在函数内部作为字典（dictionary）处理，字典的键是参数名，值是传递给函数的参数值。在Python中，kwargs是一个通用的名字，代表“keyword arguments”，但你也可以使用其他任何名字。
-这是一个简单的使用**kwargs的例子'''
-        self.model = copy.deepcopy(args.model)
-        self.algorithm = args.algorithm
-        self.dataset = args.dataset
-        self.device = args.device
+    def __init__(self,args,id,train_samples,test_samples,**kwargs):
+        '''**kwargs是Python中的一种语法,它允许函数接收任意数量的关键字参数。
+        这些参数在函数内部作为字典（dictionary）处理，字典的键是参数名，值是传递给函数的参数值。在Python中,
+        kwargs是一个通用的名字，代表“keyword arguments”，但你也可以使用其他任何名字。
+        '''
+        self.model = copy.deepcopy(args['model'])
+        self.algorithm = args['algorithm']
+        self.dataset = args['dataset']
+        self.device = args['device']
         
-        self.save_dir = args.save_dir
-        self.num_classes = args.num_classes
+        self.save_dir = os.path.join(os.getcwd(),args['save_dir'],'ditto')
+        self.num_classes = args['num_classes']
         self.train_samples = train_samples
         self.test_samples = test_samples
-        self.batch_size = args.batch_size
-        self.learning_rate = args.learning_rate
-        self.epochs = args.epochs
+        self.batch_size = args['batch_size']
+        self.learning_rate = args['learning_rate']
+        self.epochs = args['epochs']
+        self.local_epochs = args['epochs']
+        # self.dataset = args.dataset
+        # self.device = args.device
         
+        # self.save_dir = args.save_dir
+        # self.num_classes = args.num_classes
+        # self.train_samples = train_samples
+        # self.test_samples = test_samples
+        # self.batch_size = args.batch_size
+        # self.learning_rate = args.learning_rate
+        # self.epochs = args.epochs
+        # self.local_epochs = args.epochs
+        self.dataset_dir = os.getcwd()
         self.id = id
-        self.train_time = {'num_rounds':0,'total_cost':0.0}
-        # self.send_time = {'num_rounds':0,}
+        self.train_time = {'rounds':0,'total_cost':0.0}
+        self.send_time = {'rounds':0,'total_cost':0.0}
         self.loss = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(),
                                           lr = self.learning_rate)
@@ -36,17 +50,17 @@ class ClientBase:
     def load_train_data(self,batch_size=None):
         if batch_size == None:
             batch_size = self.batch_size
-        train_data = data.read_client_data(self.dataset,self.idx,is_train = True)
+        train_data = data.read_client_data(self.dataset,self.id,self.dataset_dir,is_train = True)
         return DataLoader(train_data,batch_size=self.batch_size,drop_last=True, shuffle=True)
     
     def load_test_data(self,batch_size=None):
         if batch_size == None:
             batch_size = self.batch_size
-        test_data = data.read_client_data(self.dataset,self.idx,is_train=False)
-        return DataLoader(test_data,batch_size,is_train=False)
+        test_data = data.read_client_data(self.dataset,self.id,self.dataset_dir,is_train=False)
+        return DataLoader(test_data,batch_size = self.batch_size, drop_last=False, shuffle=True)
     
     def train_model(self):
-        train_loader = self.load_test_data()
+        train_loader = self.load_train_data()
         
         self.model.eval()
         train_num = 0

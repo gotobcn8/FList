@@ -1,4 +1,4 @@
-from client import ClientBase
+from .client import ClientBase
 from sklearn.preprocessing import label_binarize
 import copy
 import time
@@ -6,17 +6,19 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from sklearn import metrics
+from models.optimizer.ditto import PersonalizedGradientDescent
 
 class Ditto(ClientBase):
-   def __init__(self,args,id,train_samples,test_samples):
-      super().__init__(args,id,train_samples,test_samples)
-      ditto = args['algorithm']['Ditto']
+   def __init__(self,args,id,train_samples,test_samples,**kwargs):
+      super().__init__(args,id,train_samples,test_samples,**kwargs)
+      ditto = args['fedAlgorithm']['Ditto']
       self.mu = ditto['mu']
-      self.per_local_steps = ditto['per_local_steps']
+      # self.per_local_steps = ditto['per_local_steps']
       self.model_person = copy.deepcopy(self.model)
-      # self.optimizer
+      self.optimizer_personl = PersonalizedGradientDescent(
+            self.model_person.parameters(), lr=self.learning_rate, mu=self.mu)
    
-   def ditto_train(self):
+   def train(self):
       train_loader = self.load_train_data()
        
       start_time = time.time()
@@ -35,9 +37,34 @@ class Ditto(ClientBase):
                loss.backward()
                self.optimizer.step()
       
-      self.train_time_cost['rounds'] += 1
-      self.train_time_cost['total_cost'] += time.time() - start_time
+      self.train_time['rounds'] += 1
+      self.train_time['total_cost'] += time.time() - start_time
       
+   def train_personalized(self):
+      trainloader = self.load_train_data()
+       
+      start_time = time.time()
+      max_local_epochs = self.local_epochs
+      #switch on training mode
+      self.model_person.train()
+      for step in range(max_local_epochs):
+            for x, y in trainloader:
+                if isinstance(x,list):
+                    x[0] = x[0].to(self.device)
+                    x = x[0]
+                else:
+                    x = x.to(self.device)
+                y = y.to(self.device)
+                output = self.model_person(x)
+                loss = self.loss(output, y)
+                self.optimizer_personl.zero_grad()
+                loss.backward()
+                self.optimizer_personl.step(self.model.parameters(),self.device)
+      self.train_time['total_cost'] += time.time() - start_time
+            
+   def test_metrics(self):
+      return self.test_personalized()
+   
    def test_personalized(self):
       testloaderfull = self.load_test_data()
       
@@ -50,23 +77,27 @@ class Ditto(ClientBase):
       
       with torch.no_grad():
          for x,y in testloaderfull:
-            x = x.to(self.device)
+            if isinstance(x, list):
+               x[0] = x[0].to(self.device)
+               x = x[0]
+            else:
+               x = x.to(self.device)
             y = y.to(self.device)
             output = self.model_person(x)
             
             test_acc += (torch.sum(torch.argmax(output,dim=1) == y)).item()
             test_num += y.shape[0]
             
-            y_prob.append(F.softmax(output).detach().cpu().numpy())
-            y_true.append(label_binarize(y.detach().cpu().numpy(),classes = np.arrange(self.num_classes)))
+            y_prob.append(F.softmax(output,dim=1).detach().cpu().numpy())
+            y_true.append(label_binarize(y.detach().cpu().numpy(),classes = np.arange(self.num_classes)))
       
       y_prob = np.concatenate(y_prob,axis=0)
       y_true = np.concatenate(y_true,axis=0)
       
       auc = metrics.roc_auc_score(y_true,y_prob,average='micro')
-      return test_acc,test_num.auc
+      return test_acc,test_num,auc
    
-   def train_personilized(self):
+   def train_personalized_with_metrics(self):
       trainloader = self.load_train_data()
       self.model_person.eval()
       
@@ -74,7 +105,9 @@ class Ditto(ClientBase):
       losses = 0
       with torch.no_grad():
          for x,y in trainloader:
-            x = x.to(self.device)
+            if isinstance(x,list):
+               x[0] = x[0].to(self.device)
+               x = x[0]
             y = y.to(self.device)
             output = self.model_person(x)
             loss = self.loss(output,y)
