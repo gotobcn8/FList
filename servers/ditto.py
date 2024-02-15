@@ -50,43 +50,15 @@ class Ditto(Server):
             self.receive_models()
             if self.dlg_eval and i % self.dlg_gap == 0:
                 self.call_dlg(i)
-            
+            print('what???')
             self.aggregate_parameters()
             self.budget.append(time.time() - start_time)
             flogger.info('-'*20,f'round {i} training time:{self.budget[-1]}','-'*20)
         flogger.info('Best Accuracy: {:.2f}'.format(max(self.rs_test_acc)))
-    
-        flogger.info(f'Average time cost per round:{sum(self.budget[1:])/len(self.Budget[1:])}')
+
+        flogger.info(f'Average time cost per round:{sum(self.budget[1:])/len(self.budget[1:])}')
         self.save_global_model()
-    
-    def evaluate_personalized(self,accuracies = None,loss = None):
-        test_metrics_res = self.test_metrics()
-        train_metrics_res = self.train_metrics()
-        
-        test_acc = sum(test_metrics_res[2]) * 1.0 / sum(test_metrics_res[1])
-        test_auc = sum(test_metrics_res[3]) * 1.0 / sum(test_metrics_res[1])
-        
-        train_loss = sum(train_metrics_res[2]) * 1.0 / sum(train_metrics_res[1])
-        accuracies = [correct / num for correct,num in zip(test_metrics_res[2],test_metrics_res[1])]
-        #about auc, reference:https://zhuanlan.zhihu.com/p/569006692
-        auc_collections = [acc / num for acc,num in zip(test_metrics_res[3],test_metrics_res[1])]
-        
-        if accuracies == None:
-            self.rs_test_acc.append(test_acc)
-        else:
-            accuracies.append(test_acc)
-        
-        if loss == None:
-            self.rs_train_loss.append(train_loss)
-        else:
-            loss.append(train_loss)
-        flogger.info('server: avg train loss:{:.3f}'.format(train_loss))
-        flogger.info('server: avg test accuracy:{:.3f}'.format(test_acc))
-        flogger.info('server: avg test AUC:{:.3f}'.format(test_auc))
-        
-        flogger.info('server: test accuracy:{:.3f}'.format(np.std(accuracies)))
-        flogger.info('server test AUC:{:.3f}'.format(np.std(auc_collections)))
-        return
+
     def train_metrics(self):
         return self.train_metrics_personalized()
     

@@ -2,5 +2,5 @@
 logfile/
 agnews/*
 requirements.txt
-__pycache__/*
+**/__pycache__/
 .vscode/launch.json

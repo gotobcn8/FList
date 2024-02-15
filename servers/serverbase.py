@@ -99,6 +99,7 @@ class Server:
         if not os.path.exists(model_path):
             os.makedirs(model_path)
         model_path = os.path.join(model_path,self.algorithm + '_server' + '.pt')
+        print(model_path)
         torch.save(self.global_model,model_path)
     
     def save_results(self):
