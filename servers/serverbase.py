@@ -38,6 +38,8 @@ class Server:
         self.fine_tuning_epoch = 0
         self.num_new_clients = 0
         self.algorithm = args['algorithm']
+        if 'save_dir' in args.keys() and args['save_dir'] != '':
+            self.save_models_dir = args['save_dir']
         
     def set_clients(self,clientObj):
         for i in range(self.num_clients):
