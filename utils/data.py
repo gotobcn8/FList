@@ -20,6 +20,20 @@ def read_data(dataset,dir,suffix,idx):
 def read_client_data(dataset,idx,dir,is_train):
     if dataset == 'agnews':
         return read_client_data_text(dataset,idx,dir,is_train)
+
+    if is_train:
+        train_data = read_data(dataset, dir,idx, is_train)
+        X_train = torch.Tensor(train_data['x']).type(torch.float32)
+        y_train = torch.Tensor(train_data['y']).type(torch.int64)
+
+        train_data = [(x, y) for x, y in zip(X_train, y_train)]
+        return train_data
+    else:
+        test_data = read_data(dataset,dir, idx, is_train)
+        X_test = torch.Tensor(test_data['x']).type(torch.float32)
+        y_test = torch.Tensor(test_data['y']).type(torch.int64)
+        test_data = [(x, y) for x, y in zip(X_test, y_test)]
+        return test_data
     
 def read_client_data_text(dataset,idx,dir,is_train):
     read_data_info = []

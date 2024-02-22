@@ -21,8 +21,6 @@ class Ditto(Server):
         ditto = args['fedAlgorithm']['Ditto']
         self.dlg_gap = ditto['dlg_gap']
         self.dlg_eval = ditto['dlg_eval']
-        self.eval_gap = args['eval_gap']
-        self.budget = []
         
         flogger.info(f"join ratio total clients:{self.join_ratio / self.num_clients}")
         flogger.info('Finished creating server and clients')

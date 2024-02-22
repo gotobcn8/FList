@@ -4,3 +4,4 @@ logfile/
 requirements.txt
 **/__pycache__/
 .vscode/launch.json
+repository/*

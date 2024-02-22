@@ -39,7 +39,11 @@ class ClientBase:
         # self.learning_rate = args.learning_rate
         # self.epochs = args.epochs
         # self.local_epochs = args.epochs
-        self.dataset_dir = os.getcwd()
+        self.dataset_dir = args['dataset_dir']
+        if args['dataset_dir'] == '':
+            self.dataset_dir = "repository/"
+        
+        # self.dataset_dir = os.getcwd()
         self.id = id
         self.train_time = {'rounds':0,'total_cost':0.0}
         self.send_time = {'rounds':0,'total_cost':0.0}

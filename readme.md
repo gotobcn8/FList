@@ -35,3 +35,4 @@ python main.py -f config.yaml
 1. Supporting command parameters input.
 2. Emulating parallel computing structure
 3. Implementing more general federated learning algorithms
+4. Change Log collector

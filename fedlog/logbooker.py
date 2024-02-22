@@ -39,8 +39,8 @@ class Attender(Logger):
         else:
            self.handlers.extend(handlers)
 
-clogger = Attender(index='client1')
-slogger = Attender()
+clogger = Attender(index='client')
+slogger = Attender(index='server')
 errlogger = Attender()
 
 if __name__ == '__main__':

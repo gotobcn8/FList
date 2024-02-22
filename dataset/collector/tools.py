@@ -133,3 +133,28 @@ def split_data(X, y):
     # gc.collect()
 
     return train_data, test_data
+
+def check(config_path, train_path, test_path, num_clients, num_classes, niid=False, 
+        balance=True, partition=None):
+    # check existing dataset
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as f:
+            config = ujson.load(f)
+        if config['num_clients'] == num_clients and \
+            config['num_classes'] == num_classes and \
+            config['non_iid'] == niid and \
+            config['balance'] == balance and \
+            config['partition'] == partition and \
+            config['alpha'] == alpha and \
+            config['batch_size'] == batch_size:
+            print("\nDataset already generated.\n")
+            return True
+
+    dir_path = os.path.dirname(train_path)
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+    dir_path = os.path.dirname(test_path)
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+    return False
