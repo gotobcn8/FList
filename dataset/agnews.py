@@ -7,8 +7,8 @@ from torchtext.data.utils import get_tokenizer
 from torchtext.vocab import build_vocab_from_iterator
 # from torchtext.vocab import set_default_index
 from .collector.tools import separate_data,split_data,save_file
-random.seed(1)
-np.random.seed(1)
+random.seed(777)
+np.random.seed(777)
 num_clients = 20
 num_classes = 4
 max_len = 200
@@ -64,7 +64,7 @@ def generate(dir_path,num_clients,num_classes,niid,balance,partition):
     label_list = np.array(label_list,dtype=object)
     
     #starting to split the dataset
-    X,y,statistic = separate_data((text_list,label_list),num_clients,num_classes,niid,balance,partition)
+    X,y,statistic,overview = separate_data((text_list,label_list),num_clients,num_classes,niid,balance,partition)
     
     train_data,test_data = split_data(X,y)
     save_file(
@@ -78,7 +78,8 @@ def generate(dir_path,num_clients,num_classes,niid,balance,partition):
         statistic,
         niid,
         balance,
-        partition
+        partition,
+        overview,
     )
     print("the size of vocabulary:",len(vocab))
 

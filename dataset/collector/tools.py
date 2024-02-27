@@ -3,6 +3,7 @@ import ujson
 import numpy as np
 import gc
 from sklearn.model_selection import train_test_split
+import json
 
 batch_size = 10
 train_size = 0.75 # merge original training set and test set, then split it manually. 
@@ -57,14 +58,6 @@ def separate_data(data,num_clients,num_classes,niid=False,balance=False,partitio
             idcs = idcs[:-1]
             for i,idx in enumerate(idcs):
                 clients_dataset_map[i].append(idx)
-    # for (i,client_data) in enumerate(clients_dataset_map):
-    #     for idx in client_data:
-    #         for j in idx:
-    #             X[i].append(dataset_content[j])
-    #             y[i].append(dataset_label[j])
-    #             for v in j:
-    #                 class_type = int(dataset_label[v])
-    #                 statistic[i][class_type] += 1  
     
     for (i,client_i_data_idx) in enumerate(clients_dataset_map):
         for (j,class_k_index) in enumerate(client_i_data_idx):
@@ -76,27 +69,34 @@ def separate_data(data,num_clients,num_classes,niid=False,balance=False,partitio
             
             
     del data
-    
+    overview = dict()
     for client in range(num_clients):
-        print(f"Client {client}\t Size of data: {len(X[client])}\t Labels: ", np.unique(y[client]))
+        overview[client] = {
+            # "labels":list(np.unique(y[client])),
+            "labels": list(map(int,list(set(y[client])))),
+            "data_size":len(X[client]),
+        }
+        print(f"Client {client}\t Size of data: {overview[client]['data_size']}\t Labels: ", overview[client]['data_size'])
         print(f"\t\t Samples of each labels: ", [i for i in statistic[client]])
         print("-" * 50)
-    return X,y,statistic
+    
+    return X,y,statistic,overview
         
 
 def save_file(config_path, train_path, test_path, train_data, test_data, num_clients, 
-                num_classes, statistic, niid=False, balance=True, partition=None):
+                num_classes, statistic, niid=False, balance=True, partition=None,overview=None):
     config = {
         'num_clients': num_clients, 
         'num_classes': num_classes, 
         'non_iid': niid, 
         'balance': balance, 
         'partition': partition, 
-        'Size of samples for labels in clients': statistic, 
+        # 'Size of samples for labels in clients': statistic, 
+        'overview':overview,
         'alpha': alpha, 
         'batch_size': batch_size, 
     }
-
+    print(config)
     # gc.collect()
     print("Saving to disk.\n")
 
@@ -117,6 +117,8 @@ def split_data(X, y):
     num_samples = {'train':[], 'test':[]}
 
     for i in range(len(y)):
+        if len(X[i]) <= 4:
+            continue
         X_train, X_test, y_train, y_test = train_test_split(
             X[i], y[i], train_size=train_size, shuffle=True)
 
@@ -158,3 +160,24 @@ def check(config_path, train_path, test_path, num_clients, num_classes, niid=Fal
         os.makedirs(dir_path)
 
     return False
+
+class OverView():
+    def __init__(self,labels,size,client_id,statistic) -> None:
+        self.cid = client_id
+        self.labels = labels
+        self.size = size
+        self.statistic = statistic
+
+if __name__ == '__main__':
+    a = {
+        'name':'fedAdvan',
+        'overview':{
+            'samples':[2,3,1,4],
+            'size':78,
+        },
+        'time':458,
+    }
+    # tmp = {'num_clients': 20, 'num_classes': 10, 'non_iid': True, 'balance': False, 'partition': 'dirichlet', 'overview': {0: {'labels': [2, 3, 6, 7, 8], 'data_size': 240}, 1: {'labels': [1, 4, 6, 7, 8, 9], 'data_size': 1756}, 2: {'labels': [0, 1, 2, 3, 6, 7, 8, 9], 'data_size': 3486}, 3: {'labels': [0, 1, 2, 6, 7, 8, 9], 'data_size': 4779}, 4: {'labels': [1, 4, 5, 7, 8], 'data_size': 1129}, 5: {'labels': [5, 8], 'data_size': 856}, 6: {'labels': [0, 3, 7, 9], 'data_size': 5647}, 7: {'labels': [0, 1, 2, 3, 6, 9], 'data_size': 11313}, 8: {'labels': [0, 1, 2, 3, 4, 7, 9], 'data_size': 672}, 9: {'labels': [2, 4, 5, 9], 'data_size': 1449}, 10: {'labels': [1, 3, 4, 6, 7, 8, 9], 'data_size': 5697}, 11: {'labels': [1, 2, 3, 5, 7, 8], 'data_size': 1444}, 12: {'labels': [0, 2, 3, 6, 8], 'data_size': 5100}, 13: {'labels': [0, 1, 3, 4, 5, 9], 'data_size': 6660}, 14: {'labels': [1, 5, 6, 7, 8, 9], 'data_size': 3137}, 15: {'labels': [4, 5, 6, 8], 'data_size': 504}, 16: {'labels': [0, 2, 4, 5], 'data_size': 1129}, 17: {'labels': [0, 3, 6, 7], 'data_size': 353}, 18: {'labels': [0, 2, 3, 4, 6], 'data_size': 6496}, 19: {'labels': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 'data_size': 8153}}, 'alpha': 0.1, 'batch_size': 10}
+    values = list(np.array([1,7,3,6,8],dtype=int))
+    with open('result.json', 'w') as f:
+        json.dump(values, f)

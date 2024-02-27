@@ -17,19 +17,21 @@ from utils.data import read_client_data
 class LSHServer(Server):
     def __init__(self, args) -> None:
         super().__init__(args)
+        self.fedAlgorithm = args['fedAlgorithm']['lsh']
+        self.data_volume = self.fedAlgorithm['data_volume']
         self.hashF = SignRandomProjections(
-            each_hash_num=6,
-            data_volume=500,
-            data_dimension=784,
+            each_hash_num=self.fedAlgorithm['hash_num'],
+            data_volume=self.data_volume,
+            data_dimension=self.fedAlgorithm['cv_dim'],
             random_seed=args['random_seed']
         )
-        self.sketches = []
+        self.sketches = dict()
         self.set_clients(ClientLshash)
     
     def set_clients(self,clientObj):
         for i in range(self.num_clients):
-            train_data = read_client_data(self.dataset,i,self.dataset_abs_dir,is_train=True)
-            test_data = read_client_data(self.dataset,i,self.dataset_abs_dir,is_train=False)
+            train_data = read_client_data(self.dataset,i,self.dataset_dir,is_train=True)
+            test_data = read_client_data(self.dataset,i,self.dataset_dir,is_train=False)
             client = clientObj(
                 self.args,id = i,
                 train_samples = len(train_data),
@@ -43,5 +45,5 @@ class LSHServer(Server):
             #  = self.hashF.hash(client)
             self.sketches[client.id] = client.minisketch
         
-        slogger.info(f'server :calculating time {time.time - start_time}')
+        slogger.info('server :calculating time {:.3f}s'.format(time.time() - start_time))
         

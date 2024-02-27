@@ -36,3 +36,4 @@ class FedAvgCNN(nn.Module):
         out = torch.flatten(out, 1)
         out = self.fc1(out)
         out = self.fc(out)
+        return out

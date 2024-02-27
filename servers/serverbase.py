@@ -8,7 +8,10 @@ import random
 import copy
 import sys
 import time
+import const.constants as const
+from fedlog.logbooker import slogger
 LOG_PATH = 'log'
+REPOSITORY_DIR = 'repository'
 # 配置文件日志记录器
 flogger = logger.bind(sink=os.path.join(LOG_PATH,'result.log'))
 flogger.add("file.log", rotation="500 MB")
@@ -30,7 +33,9 @@ class Server:
         self.rs_test_acc = []
         self.rs_test_auc = []
         self.rs_train_loss = []
-        self.dataset_abs_dir = os.getcwd()
+        self.dataset_dir = const.DIR_DEPOSITORY
+        if 'dataset_dir' in args.keys():
+            self.dataset_dir = args['dataset_dir']
         self.clients = []
         self.random_clients_selected = args['random_clients_selected']
         self.num_join_clients = int(self.num_clients * self.join_ratio)
@@ -46,8 +51,8 @@ class Server:
         
     def set_clients(self,clientObj):
         for i in range(self.num_clients):
-            train_data = read_client_data(self.dataset,i,self.dataset_abs_dir,is_train=True)
-            test_data = read_client_data(self.dataset,i,self.dataset_abs_dir,is_train=False)
+            train_data = read_client_data(self.dataset,i,self.dataset_dir,is_train=True)
+            test_data = read_client_data(self.dataset,i,self.dataset_dir,is_train=False)
             client = clientObj(self.args,id = i,
                                train_samples = len(train_data),
                                test_samples = len(test_data),
@@ -197,6 +202,7 @@ class Server:
             self.uploaded_weights[i] = w / total_samples
     
     def train(self):
+        slogger.debug('server','starting to train')
         for i in range(self.global_rounds+1):
             s_t = time.time()
             self.selected_clients = self.select_clients()
@@ -216,15 +222,15 @@ class Server:
             # [t.join() for t in threads]
 
             self.receive_models()
-            if self.dlg_eval and i%self.dlg_gap == 0:
-                self.call_dlg(i)
+            # if self.dlg_eval and i%self.dlg_gap == 0:
+            #     self.call_dlg(i)
             self.aggregate_parameters()
 
-            self.Budget.append(time.time() - s_t)
-            print('-'*25, 'time cost', '-'*25, self.Budget[-1])
+            self.budget.append(time.time() - s_t)
+            print('-'*25, 'time cost', '-'*25, self.budget[-1])
 
-            if self.auto_break and self.check_done(acc_lss=[self.rs_test_acc], top_cnt=self.top_cnt):
-                break
+            # if self.auto_break and self.check_done(acc_lss=[self.rs_test_acc], top_cnt=self.top_cnt):
+            #     break
 
         print("\nBest accuracy.")
         # self.print_(max(self.rs_test_acc), max(

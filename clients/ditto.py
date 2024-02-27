@@ -49,23 +49,23 @@ class Ditto(ClientBase):
       self.model_person.train()
       for step in range(max_local_epochs):
             for x, y in trainloader:
-                if isinstance(x,list):
+               if isinstance(x,list):
                     x[0] = x[0].to(self.device)
                     x = x[0]
-                else:
-                    x = x.to(self.device)
-                y = y.to(self.device)
-                output = self.model_person(x)
-                loss = self.loss(output, y)
-                self.optimizer_personl.zero_grad()
-                loss.backward()
-                self.optimizer_personl.step(self.model.parameters(),self.device)
+               else:
+                  x = x.to(self.device)
+               y = y.to(self.device)
+               output = self.model_person(x)
+               loss = self.loss(output, y)
+               self.optimizer_personl.zero_grad()
+               loss.backward()
+               self.optimizer_personl.step(self.model.parameters(),self.device)
       self.train_time['total_cost'] += time.time() - start_time
             
    def test_metrics(self):
-      return self.test_personalized()
+      return self.test_personalized_with_metrics()
    
-   def test_personalized(self):
+   def test_personalized_with_metrics(self):
       testloaderfull = self.load_test_data()
       
       self.model_person.eval()

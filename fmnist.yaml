@@ -13,19 +13,21 @@ models:
     num_classes: 10
     dim: 1024
     batch_size: 15
-num_clients: 20
+num_clients: 30
 epochs: 30
 learning_rate: 0.01
-dataset: mnist
+dataset: fmnist
 agnews:
   max_len: 200
   niid: true
   partition: dirichlet
   balance: false
-mnist:
+fmnist:
   niid: true
   partition: dirichlet
   balance: false
+dirichlet:
+  alpha: 0.1
 device: gpu
 device_id: 0
 join_ratio: 0.5
@@ -46,3 +48,6 @@ fedAlgorithm:
     num_rounds: 10
     dlg_eval: False
     dlg_gap: 100
+    hash_num: 6
+    cv_dim: 784
+    

@@ -8,6 +8,8 @@ from loguru import logger
 from sklearn import metrics
 import os
 import utils.data as data
+import time
+import const.constants as const
  
 class ClientBase:
     def __init__(self,args,id,train_samples,test_samples,**kwargs):
@@ -39,9 +41,9 @@ class ClientBase:
         # self.learning_rate = args.learning_rate
         # self.epochs = args.epochs
         # self.local_epochs = args.epochs
-        self.dataset_dir = args['dataset_dir']
-        if args['dataset_dir'] == '':
-            self.dataset_dir = "repository/"
+        self.dataset_dir = const.DIR_DEPOSITORY
+        if 'dataset_dir' in args.keys():
+            self.dataset_dir = args['dataset_dir']
         
         # self.dataset_dir = os.getcwd()
         self.id = id
@@ -50,7 +52,8 @@ class ClientBase:
         self.loss = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(),
                                           lr = self.learning_rate)
-    
+        #temporary setting
+        self.train_slow = False
     def load_train_data(self,batch_size=None):
         if batch_size == None:
             batch_size = self.batch_size
@@ -63,7 +66,7 @@ class ClientBase:
         test_data = data.read_client_data(self.dataset,self.id,self.dataset_dir,is_train=False)
         return DataLoader(test_data,batch_size = self.batch_size, drop_last=False, shuffle=True)
     
-    def train_model(self):
+    def train_metrics(self):
         train_loader = self.load_train_data()
         
         self.model.eval()
@@ -81,9 +84,9 @@ class ClientBase:
                 
         return losses,train_num  
 
-    def test_model(self):
+    def test_metrics(self):
         testloader = self.load_test_data()
-        logger.info(len(testloader))
+        # self.model.to(self.device)
         self.model.eval()
         test_accuracy = 0
         test_num = 0
@@ -92,12 +95,15 @@ class ClientBase:
 
         with torch.no_grad():
             for x,y in testloader:
-                x = x.to(self.device)
+                if type(x) == type([]):
+                    x[0] = x[0].to(self.device)
+                else:
+                    x = x.to(self.device)
                 y = y.to(self.device)
                 output = self.model(x)
                 
                 test_accuracy += (torch.sum(torch.argmax(output,dim=1) == y)).item()
-                test_sum += y.shape[0]
+                test_num += y.shape[0]
                 #将 PyTorch tensor output 从计算图中分离并移动到 CPU，然后将其转换为 NumPy 数组。
                 y_prob.append(output.detach().cpu().numpy())
                 nc = self.num_classes
@@ -128,3 +134,37 @@ class ClientBase:
         if item_path == None:
             item_path = self.save_dir
         return torch.load(os.path.join(item_path,'client_'+str(self.id)+'_'+item_name+'.pt'))
+    
+    def train(self):
+        trainloader = self.load_train_data()
+        # self.model.to(self.device)
+        self.model.train()
+        
+        start_time = time.time()
+
+        max_local_epochs = self.local_epochs
+        if self.train_slow:
+            max_local_epochs = np.random.randint(1, max_local_epochs // 2)
+
+        for _ in range(max_local_epochs):
+            for i, (x, y) in enumerate(trainloader):
+                if type(x) == type([]):
+                    x[0] = x[0].to(self.device)
+                else:
+                    x = x.to(self.device)
+                y = y.to(self.device)
+                if self.train_slow:
+                    time.sleep(0.1 * np.abs(np.random.rand()))
+                output = self.model(x)
+                loss = self.loss(output, y)
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+
+        # self.model.cpu()
+
+        # if self.learning_rate_decay:
+        #     self.learning_rate_scheduler.step()
+
+        self.train_time['rounds'] += 1
+        self.train_time['total_cost'] += time.time() - start_time

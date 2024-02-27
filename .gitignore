@@ -2,6 +2,7 @@
 logfile/
 **/agnews/*
 requirements.txt
-**/__pycache__/
-.vscode/launch.json
+**/__pycache__/**
+.vscode/*
 repository/*
+*.pt

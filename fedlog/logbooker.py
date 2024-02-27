@@ -30,7 +30,6 @@ class Attender(Logger):
         fhandler = TimedRotatingFileHandler(
             filename=filePath
         )
-        self.extra['identifier'] = index
         # chandler.format_string
         chandler.formatter = logType
         fhandler.formatter = logType

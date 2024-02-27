@@ -2,15 +2,22 @@ import os
 import numpy as np
 import torch
 
-def read_data(dataset,dir,suffix,idx):
+PREFIX_TRAIN = 'train'
+PREFIX_TEST = 'test'
+SUFFIX_NPZ='.npz'
+
+def read_data(dataset,dir,idx,is_train):
     '''
     dir = absolute directory, 
     dataset is dataset name
     suffix is train or test data name
     idx is the indicator
     '''
-    file_name = suffix+str(idx)+'.npz'
-    full_file_name = os.path.join(dir,dataset,file_name)
+    prefix = PREFIX_TRAIN
+    if not is_train:
+        prefix=PREFIX_TEST
+    file_name = str(idx)+SUFFIX_NPZ
+    full_file_name = os.path.join(dir,dataset,prefix,file_name)
     # current_file_path = os.path.abspath(__file__)
     # print(current_file_path)
     with open(full_file_name,'rb') as f:
@@ -34,13 +41,32 @@ def read_client_data(dataset,idx,dir,is_train):
         y_test = torch.Tensor(test_data['y']).type(torch.int64)
         test_data = [(x, y) for x, y in zip(X_test, y_test)]
         return test_data
-    
+
+def read_x_data(dataset,idx,dir,is_train):
+    # if dataset == 'agnews':
+    #     return read_client_data_text(dataset,idx,dir,is_train)
+
+    if is_train:
+        train_data = read_data(dataset, dir,idx, is_train)
+        # train_x = np.array(train_data['x'])
+        train_x = train_data['x']
+        for i in range(len(train_x)):
+            train_x[i] = torch.tensor(train_x[i])
+        # for x in train_x:
+        #     print(x.shape)
+        # print(train_x.shape)
+        return train_x
+    else:
+        test_data = read_data(dataset,dir, idx, is_train)
+        # X_test = torch.Tensor(test_data['x']).type(torch.float32)
+        return test_data['x']
+
 def read_client_data_text(dataset,idx,dir,is_train):
     read_data_info = []
     if is_train:
-        read_data_info = read_data(dataset,dir,'train',idx)
+        read_data_info = read_data(dataset,dir,idx,True)
     else:
-        read_data_info = read_data(dataset,dir,'test',idx)
+        read_data_info = read_data(dataset,dir,idx,False)
     X_list,X_list_lens = list(zip(*read_data_info['x']))
     y_list = read_data_info['y']
     

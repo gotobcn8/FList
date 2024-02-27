@@ -3,7 +3,7 @@ from loguru import logger
 import utils.read as yml
 import utils.cmd.parse as parse
 import models.transformers as transformers
-import models.cnn as cnn
+from models.cnn import FedAvgCNN
 # from servers.serverapi import get_server
 import servers.serverapi as sapi
 import torch
@@ -51,13 +51,13 @@ def models_select(args):
                       num_clients=args['num_clients'],
                       num_classes=parameters['num_classes'])
     if model_name == 'cnn':
-        clogger.info("using textcnn")
+        clogger.info("using cnn")
         #here should return the nn.Module
-        if dataset == 'mnist':
-            return cnn(in_features=1,num_classes=args['num_classes'],dim=1024)
+        if 'mnist' in dataset:
+            return FedAvgCNN(in_features=1,num_classes=args['num_classes'],dim=1024).to(args['device'])
     elif model_name == 'transformers':
         return transformers.TransformerModel(ntoken=parameters['vocab_size'],d_model=parameters['embadding_dim'],nhead=8,d_hid=parameters['embadding_dim'],
-                                             nlayers=parameters['nlayers'],num_classes=parameters['num_classes']).to(args['device'])
+                                            nlayers=parameters['nlayers'],num_classes=parameters['num_classes']).to(args['device'])
     else:
         clogger.exception(f"couldn't find {model_name} in models, plz check whether fedAdvan support it")
 

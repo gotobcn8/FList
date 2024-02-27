@@ -32,7 +32,7 @@ class SignRandomProjections():
         #for better reflect and avoiding repetition value
         self.pow2 = torch.from_numpy(
             np.array(
-                2**i for i in range(self.hash_num)
+                [2**i for i in range(self.hash_num)]
             )
         ).float()
     
@@ -71,13 +71,15 @@ class ReflectSketch():
     
     def get_sketch(self,X,device):
         self.NumberData += X.shape[0]
+        if X.dim() > 2:
+            X = X.reshape(len(X),-1)
         hashcodes = self.hashF.hash(X,device)
-        if device == 'cuda':
-            hashcodes = hashcodes.cpu().numpy()
+        # if device == 'cuda':
+        #     hashcodes = hashcodes.cpu().numpy()
         self.increasecount(hashcodes)
     
-    @guvectorize([( intp[:,:], float64[:], float64[:,:], float64[:,:])], '(n,l1),(l2),(m,k)->(m,k)',
-                 target = "parallel", nopython=True,cache = True)
+    # @guvectorize([( intp[:,:], float64[:], float64[:,:], float64[:,:])], '(n,l1),(l2),(m,k)->(m,k)',
+    #              target = "parallel", nopython=True,cache = True)
     def increasecount(self,hashcodes):
         # self.sketch = self.sketch.float()
         for i in range(self.sketch.shape[0]):
