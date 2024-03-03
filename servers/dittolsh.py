@@ -87,14 +87,16 @@ class LSHDittoServer(Server):
 
             # if self.auto_break and self.check_done(acc_lss=[self.rs_test_acc], top_cnt=self.top_cnt):
             #     break
-            if self.new_clients_settings['enabled'] and self.new_clients_joining_round >= i:
-                if len(self.late_clients) < self.num_join_each_round:
+            if self.new_clients_settings['enabled'] and i+1 >= self.start_new_joining_round and len(self.late_clients) > 0:
+                if len(self.late_clients) < self.num_new_join_each_round:
                     new_attend_clients = self.late_clients
+                    self.late_clients = []
                 else:
-                    new_attend_clients = self.late_clients[:self.num_join_each_round]
-                    self.late_clients = self.late_clients[self.num_join_each_round:]
+                    new_attend_clients = self.late_clients[:self.num_new_join_each_round]
+                    self.late_clients = self.late_clients[self.num_new_join_each_round:]
                 #it need to be fine-tuned before attending
                 self.fine_tuning_new_clients(new_attend_clients)
+                self.clients.extend(new_attend_clients)
         # self.print_(max(self.rs_test_acc), max(
         #     self.rs_train_acc), min(self.rs_train_loss))
         print(max(self.rs_test_acc))
@@ -114,17 +116,17 @@ class LSHDittoServer(Server):
     # def select_clients(self):
     #     selected_clients = []
     def cluster_aggregate_parameters(self):
-        for cluster in self.clusters:
-            cluster.aggregate_parameters()
-
+        # for cluster in self.clusters:
+        #     cluster.aggregate_parameters()
+        for cluster_id in self.cluster_attend_clients.keys():
+            self.clusters[cluster_id].aggregate_parameters()
     
     def cluster_receive_models(self):
         self.cluster_attend_clients = dict()
-        self.cluster
-        for attend_client in self.select_clients:
+        for attend_client in self.selected_clients:
             cluster_id = self.clients_map_clusters[attend_client.id]
             if cluster_id not in self.cluster_attend_clients:
-                self.cluster_attend_clients = []
+                self.cluster_attend_clients[cluster_id] = []
             #attender serial id in this round
             self.cluster_attend_clients[cluster_id].append(attend_client)
         
@@ -162,13 +164,13 @@ class LSHDittoServer(Server):
     def fine_tuning_new_clients(self,new_clients):
         for new_client in new_clients:
             which_cluster = self.clients_map_clusters[new_client.id]
-            new_client.set_parameters(which_cluster.model)
+            new_client.set_parameters(self.clusters[int(which_cluster)].cluster_model)
             optimizer = torch.optim.SGD(new_client.model.parameters(),lr = self.learning_rate)
             lossFunc = torch.nn.CrossEntropyLoss()
             train_loader = new_client.load_train_data()
             new_client.model.train()
             for _ in range(self.fine_tuning_epoch):
-                for i,(x,y) in enumerate(train_loader):
+                for _,(x,y) in enumerate(train_loader):
                     if isinstance(x,list):
                         x[0] = x[0].to(new_client.device)
                         x = x[0]
@@ -212,16 +214,13 @@ class LSHDittoServer(Server):
     
     def test_metrics_personalized(self):
         # return super().test_metrics()
-        if self.eval_new_clients and self.num_new_clients > 0:
-            self.fine_tuning_new_clients()
-            return self.test_metrics_new_clients()
         num_samples = []
         total_corrects = []
         total_auc = []
         ids = [0] * len(self.clients)
         for i,c in enumerate(self.clients):
             if c.id.startswith('late'):
-                self.clusters[self.clients_map_clusters[c.id]].generalized()
+                self.clusters[self.clients_map_clusters[c.id]].test_personal_model_generalized(c)
                 continue
             c_corrects,c_num_samples,c_auc = c.test_metrics()
             total_corrects.append(c_corrects*1.0)

@@ -56,16 +56,17 @@ class ClusterBase():
         '''
         This function is used to test the personalized model generalized ability in cluster. 
         '''
+        clogger.debug('Starting to evaluate the generalization of cluster {}'.format(self.id))
         avg_test_acc,total_test_num,avg_auc = 0,0,0
         for client in self.clients:
             if test_client.id == client.id:
                 continue
-            test_acc,test_num,auc = client.test_other_personalized_model()
+            test_acc,test_num,auc = client.test_other_personalized_model(test_client.model)
             clogger.info('cluster {} new coming client {} be tested client{}'.format(self.id,test_client.id,client.id))
             clogger.info('test_accuracy:{} test_num:{} test_auc:{}'.format(test_acc,test_num,auc))
             total_test_num += test_num
-            avg_test_acc *= test_num
-            avg_auc *= test_num
+            avg_test_acc += test_acc*test_num
+            avg_auc += auc*test_num
         
         avg_test_acc =  (avg_test_acc * 1.0) / total_test_num 
         avg_auc =  (avg_auc * 1.0) / total_test_num

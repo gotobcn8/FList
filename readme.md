@@ -21,6 +21,13 @@ This is a framework for federated learning.
 ### Algorithm support
 - FedAvg
 - Ditto
+- LSH Sketch
+
+### dataset support
+- agnews
+- mnist
+- fmnist
+- emnist
 
 ### Run it
 ```bash
@@ -29,6 +36,10 @@ python main.py
 or
 ```bash
 python main.py -f config.yaml
+```
+You can add a new configure file under config/
+```
+python main.py -f config/mnist.yaml
 ```
 
 ### future work

@@ -113,6 +113,8 @@ class LSHDittoClient(ClientBase):
                 if isinstance(x,list):
                     x[0] = x[0].to(self.device)
                     x = x[0]
+                else:
+                    x = x.to(self.device)
                 y = y.to(self.device)
                 output = self.model_person(x)
                 loss = self.loss(output,y)
@@ -129,7 +131,7 @@ class LSHDittoClient(ClientBase):
     def test_other_personalized_model(self,other_personalized_model):
         testloaderfull = self.load_test_data()
       
-        self.other_personalized_model.eval()
+        other_personalized_model.eval()
       
         test_acc = 0
         test_num = 0
@@ -144,7 +146,7 @@ class LSHDittoClient(ClientBase):
                 else:
                     x = x.to(self.device)
                 y = y.to(self.device)
-                output = self.model_person(x)
+                output = other_personalized_model(x)
                 
                 test_acc += (torch.sum(torch.argmax(output,dim=1) == y)).item()
                 test_num += y.shape[0]
