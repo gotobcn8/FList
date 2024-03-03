@@ -13,7 +13,7 @@ models:
     num_classes: 10
     dim: 1024
     batch_size: 15
-num_clients: 30
+num_clients: 50
 epochs: 30
 learning_rate: 0.01
 dataset: fmnist
@@ -50,4 +50,5 @@ fedAlgorithm:
     dlg_gap: 100
     hash_num: 6
     cv_dim: 784
+    new_clients_rate: 0.5
     

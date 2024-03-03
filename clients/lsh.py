@@ -13,7 +13,7 @@ class LSHClient(ClientBase):
         super().__init__(args,id,train_samples,test_samples,**kwargs)
         lshAlgo = args['fedAlgorithm']['lsh']
         # self.per_local_steps = ditto['per_local_steps']
-        self.model_person = copy.deepcopy(self.model)
+        self.model = copy.deepcopy(args['model'])
         # self.optimizer_personl = PersonalizedGradientDescent(
         #         self.model_person.parameters(), lr=self.learning_rate, mu=self.mu)
     
@@ -38,11 +38,11 @@ class LSHClient(ClientBase):
     def load_sketch_data(self,data_volume = 1000):
         sketch_data = data.read_x_data(
             self.dataset,
-            self.id,
+            self.serial_id,
             self.dataset_dir,
             is_train = True
         )
-        sketch_data = np.random.choice(sketch_data,data_volume)
+        sketch_data = np.random.choice(sketch_data[0],data_volume)
         return DataLoader(
             dataset = sketch_data,
             batch_size = data_volume,

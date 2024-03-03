@@ -48,7 +48,7 @@ class Ditto(Server):
             self.receive_models()
             if self.dlg_eval and i % self.dlg_gap == 0:
                 self.call_dlg(i)
-            print('what???')
+
             self.aggregate_parameters()
             self.budget.append(time.time() - start_time)
             flogger.info('-'*20,f'round {i} training time:{self.budget[-1]}','-'*20)
@@ -116,8 +116,8 @@ class Ditto(Server):
         flogger.info('server: avg test accuracy:{:.3f}'.format(test_acc))
         flogger.info('server: avg test AUC:{:.3f}'.format(test_auc))
         
-        flogger.info('server: test accuracy:{:.3f}'.format(np.std(accuracies)))
-        flogger.info('server test AUC:{:.3f}'.format(np.std(auc_collections)))
+        flogger.info('std: test accuracy:{:.3f}'.format(np.std(accuracies)))
+        flogger.info('std test AUC:{:.3f}'.format(np.std(auc_collections)))
     
     def call_dlg(self,id):
         cnt = 0

@@ -12,7 +12,7 @@ import time
 import const.constants as const
  
 class ClientBase:
-    def __init__(self,args,id,train_samples,test_samples,**kwargs):
+    def __init__(self,args,id,train_samples,test_samples,serial_id,**kwargs):
         '''**kwargs是Python中的一种语法,它允许函数接收任意数量的关键字参数。
         这些参数在函数内部作为字典（dictionary）处理，字典的键是参数名，值是传递给函数的参数值。在Python中,
         kwargs是一个通用的名字，代表“keyword arguments”，但你也可以使用其他任何名字。
@@ -47,6 +47,7 @@ class ClientBase:
         
         # self.dataset_dir = os.getcwd()
         self.id = id
+        self.serial_id = serial_id
         self.train_time = {'rounds':0,'total_cost':0.0}
         self.send_time = {'rounds':0,'total_cost':0.0}
         self.loss = nn.CrossEntropyLoss()
@@ -54,16 +55,18 @@ class ClientBase:
                                           lr = self.learning_rate)
         #temporary setting
         self.train_slow = False
+        self.late = False
+    
     def load_train_data(self,batch_size=None):
         if batch_size == None:
             batch_size = self.batch_size
-        train_data = data.read_client_data(self.dataset,self.id,self.dataset_dir,is_train = True)
+        train_data = data.read_client_data(self.dataset,self.serial_id,self.dataset_dir,is_train = True)
         return DataLoader(train_data,batch_size=self.batch_size,drop_last=True, shuffle=True)
     
     def load_test_data(self,batch_size=None):
         if batch_size == None:
             batch_size = self.batch_size
-        test_data = data.read_client_data(self.dataset,self.id,self.dataset_dir,is_train=False)
+        test_data = data.read_client_data(self.dataset,self.serial_id,self.dataset_dir,is_train=False)
         return DataLoader(test_data,batch_size = self.batch_size, drop_last=False, shuffle=True)
     
     def train_metrics(self):
@@ -168,3 +171,7 @@ class ClientBase:
 
         self.train_time['rounds'] += 1
         self.train_time['total_cost'] += time.time() - start_time
+    
+    def set_parameters(self, model):
+        for new_param, old_param in zip(model.parameters(), self.model.parameters()):
+            old_param.data = new_param.data.clone()

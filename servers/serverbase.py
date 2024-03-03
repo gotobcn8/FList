@@ -12,6 +12,7 @@ import const.constants as const
 from fedlog.logbooker import slogger
 LOG_PATH = 'log'
 REPOSITORY_DIR = 'repository'
+ORIGIN = 'original_'
 # 配置文件日志记录器
 flogger = logger.bind(sink=os.path.join(LOG_PATH,'result.log'))
 flogger.add("file.log", rotation="500 MB")
@@ -22,11 +23,13 @@ clogger.add(sys.stdout, colorize=True)
 class Server:
     def __init__(self,args) -> None:
         self.args = args
+        self.global_model = args['model']
         self.device = args['device']
         self.dataset = args['dataset']
         self.num_clients = args['num_clients']
         self.join_ratio = args['join_ratio']
         self.client_drop_rate = args['client_drop_rate']
+        self.learning_rate = args['learning_rate']
         
         self.global_rounds = args['global_rounds']
         self.time_threthold = args['time_threthold']
@@ -36,61 +39,76 @@ class Server:
         self.dataset_dir = const.DIR_DEPOSITORY
         if 'dataset_dir' in args.keys():
             self.dataset_dir = args['dataset_dir']
-        self.clients = []
+        #join clients setting
+
+        self.new_clients_settings = args['new_clients']
         self.random_clients_selected = args['random_clients_selected']
-        self.num_join_clients = int(self.num_clients * self.join_ratio)
+        self.new_clients_rate = self.new_clients_settings['rate']
+        self.set_for_new_clients()
+        self.num_original_clients = self.num_clients - self.num_new_clients
+        self.num_join_clients = self.num_original_clients * self.join_ratio
+        self.num_new_clients = int(self.num_clients * self.new_clients_rate)
+        self.late_clients = []
+        self.all_clients = []
+        self.clients = []
+        
         # false temporary
         self.eval_new_clients = False
         self.fine_tuning_epoch = 0
-        self.num_new_clients = 0
         self.algorithm = args['algorithm']
         self.eval_gap = args['eval_gap']
         self.budget = []
+        
         if 'save_dir' in args.keys() and args['save_dir'] != '':
             self.save_models_dir = args['save_dir']
+            
+    
+    def set_for_new_clients(self):
+        #whether the new clients join setting is openning, otherwise no clients join in future.
+        if not self.new_clients_settings['enabled']:
+            self.new_clients_rate = 0
+        #total new clients
+        self.num_new_clients = int(self.num_clients  * self.new_clients_rate)
+        #which round that have new clients to join in
+        self.start_new_joining_round = self.new_clients_settings['started_round']
+        #how many clients join in each round
+        self.num_new_join_each_round = self.new_clients_settings['num_join_each_round']
+        # self.late_clients =']
         
+
     def set_clients(self,clientObj):
-        for i in range(self.num_clients):
+        for i in range(self.num_original_clients):
             train_data = read_client_data(self.dataset,i,self.dataset_dir,is_train=True)
             test_data = read_client_data(self.dataset,i,self.dataset_dir,is_train=False)
-            client = clientObj(self.args,id = i,
-                               train_samples = len(train_data),
-                               test_samples = len(test_data),
-                               )
+            client = clientObj(
+                self.args,
+                id = ORIGIN+str(i),
+                serial_id=i,
+                train_samples = len(train_data),
+                test_samples = len(test_data),
+            )
             self.clients.append(client)
-    
+        self.all_clients.extend(self.clients)
+        
     def select_clients(self):
         logger.info('Starting select clients for server')
         if self.random_clients_selected:
-            self.current_num_join_clients = np.random.choice(int(self.num_clients * self.join_ratio),self.num_clients+1)
+            #random number of attend clients
+            self.current_num_join_clients = np.random.choice(int(self.num_original_clients * self.join_ratio),self.num_original_clients+1)
         else:
+            #static number of attend clients
             self.current_num_join_clients = self.num_join_clients
-        selected_clients = list(np.random.choice(self.clients,self.current_num_join_clients,replace=False))
+        selected_clients = list(np.random.choice(self.clients,int(self.current_num_join_clients),replace=False))
         return selected_clients
-
+    
     def send_models(self):
-        if len(self.clients) <= 0:
-            logger.exception(f"couldn't find {self.clients} in models")
-        logger.debug(type(self.select_clients))
-        active_clients = random.sample(
-            self.selected_clients,int((1-self.client_drop_rate))
-        )
+        assert (len(self.clients) > 0)
         
-        self.uploaded_ids = []
-        self.uploaded_weights = []
-        self.uploaded_models = []
-        total_samples = 0
-        for client in active_clients:
-            client_time_cost = client.train_time['total_cost'] / client.train_time['rounds'] + \
-                        client.send_time['total_cost'] / client.send_time['rounds']
-            if client_time_cost <= self.time_threthold:
-                total_samples += client.train_samples
-                self.uploaded_ids.append(client.id)
-                self.uploaded_weights.append(client.train_samples)
-                self.uploaded_models.append(client.model)
-        
-        for i,w in enumerate(self.uploaded_weights):
-            self.uploaded_weights[i] = w / total_samples
+        for client in self.clients:
+            start_time = time.time()
+            client.set_parameters(self.global_model)
+            client.send_time['rounds'] += 1
+            client.send_time['total_cost'] += 2 * (time.time() - start_time)
     
     def aggregate_parameters(self):
         self.global_model = copy.deepcopy(self.uploaded_models[0])
@@ -105,16 +123,15 @@ class Server:
             server_param.data += client_param.data.clone() * w
     
     def save_global_model(self):
-        model_path = os.path.join('models',self.dataset)
+        model_path = os.path.join(self.save_models_dir,self.dataset)
         if not os.path.exists(model_path):
             os.makedirs(model_path)
         model_path = os.path.join(model_path,self.algorithm + '_server' + '.pt')
-        print(model_path)
+        print('server saving directory:',model_path)
         torch.save(self.global_model,model_path)
     
     def save_results(self):
         flogger.info(f"rs_test_acc:{self.rs_test_acc},rs_test_auc:{self.rs_test_auc},rs_train_loss:{self.rs_train_loss}")
-    
     
     def test_metrics(self):
         if self.eval_new_clients and self.num_new_clients > 0:
@@ -231,7 +248,6 @@ class Server:
 
             # if self.auto_break and self.check_done(acc_lss=[self.rs_test_acc], top_cnt=self.top_cnt):
             #     break
-
         print("\nBest accuracy.")
         # self.print_(max(self.rs_test_acc), max(
         #     self.rs_train_acc), min(self.rs_train_loss))
@@ -248,3 +264,16 @@ class Server:
         #     print(f"\n-------------Fine tuning round-------------")
         #     print("\nEvaluate new clients")
         #     self.evaluate()
+    
+    def set_late_clients(self,clientObj):
+        for i in range(self.num_new_clients):
+            train_data = read_client_data(self.dataset,i,self.dataset_dir,is_train=True)
+            test_data = read_client_data(self.dataset,i,self.dataset_dir,is_train=False)
+            client = clientObj(
+                self.args,id = 'late_'+str(i),
+                train_samples = len(train_data),
+                test_samples = len(test_data),
+                serial_id = i+self.num_original_clients,
+            )
+            self.late_clients.append(client)
+        self.all_clients.extend(self.late_clients)

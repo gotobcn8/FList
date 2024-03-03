@@ -50,8 +50,8 @@ class Ditto(ClientBase):
       for step in range(max_local_epochs):
             for x, y in trainloader:
                if isinstance(x,list):
-                    x[0] = x[0].to(self.device)
-                    x = x[0]
+                  x[0] = x[0].to(self.device)
+                  x = x[0]
                else:
                   x = x.to(self.device)
                y = y.to(self.device)
