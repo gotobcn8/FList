@@ -58,17 +58,23 @@ class ClusterBase():
         '''
         clogger.debug('Starting to evaluate the generalization of cluster {}'.format(self.id))
         avg_test_acc,total_test_num,avg_auc = 0,0,0
+        if len(self.clients) <= 1:
+            clogger.warn('test_client:{}, cluster clients less than 1,can not test the generallization'.format(test_client.id))
+            return
+        if test_client.train_time['rounds'] == 0:
+            clogger.info('this is first time to test the generalization of {}'.format(test_client.id))
         for client in self.clients:
             if test_client.id == client.id:
                 continue
             test_acc,test_num,auc = client.test_other_personalized_model(test_client.model)
-            clogger.info('cluster {} new coming client {} be tested client{}'.format(self.id,test_client.id,client.id))
-            clogger.info('test_accuracy:{} test_num:{} test_auc:{}'.format(test_acc,test_num,auc))
+            clogger.info('cluster {} new coming client {} be tested client {}'.format(self.id,test_client.id,client.id))
+            clogger.info('test_accuracy:{}%% test_num:{} test_auc:{}'.format(test_acc*100.0/test_num,test_num,auc))
             total_test_num += test_num
-            avg_test_acc += test_acc*test_num
+            avg_test_acc += test_acc
             avg_auc += auc*test_num
         
+        # if avg_test_acc == 0:
         avg_test_acc =  (avg_test_acc * 1.0) / total_test_num 
         avg_auc =  (avg_auc * 1.0) / total_test_num
-        clogger.info('avg_acc:{} avg_auc:{}'.format(avg_test_acc,avg_auc))
+        clogger.info('-------avg_acc:{:.3f}%% avg_auc:{:.3f}'.format(avg_test_acc*100,avg_auc))
         

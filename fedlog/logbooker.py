@@ -27,6 +27,8 @@ class Attender(Logger):
         # self.handlers = []
         self.identifier = index
         chandler = ColorizedStderrHandler(bubble=True)
+        if not os.path.exists(filePath):
+            os.makedirs(filePath)
         fhandler = TimedRotatingFileHandler(
             filename=filePath
         )

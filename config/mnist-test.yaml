@@ -30,7 +30,7 @@ device: gpu
 device_id: 0
 join_ratio: 0.5
 client_drop_rate: 0.2
-global_rounds: 5
+global_rounds: 6
 time_threthold: 10000
 algorithm: ditto_lsh
 save_dir: results/

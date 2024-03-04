@@ -90,7 +90,7 @@ class Server:
             self.clients.append(client)
         self.all_clients.extend(self.clients)
         
-    def select_clients(self):
+    def select_clients(self,is_late_attended = False):
         logger.info('Starting select clients for server')
         if self.random_clients_selected:
             #random number of attend clients
@@ -99,6 +99,16 @@ class Server:
             #static number of attend clients
             self.current_num_join_clients = self.num_join_clients
         selected_clients = list(np.random.choice(self.clients,int(self.current_num_join_clients),replace=False))
+        # has_lated = False
+        # if is_late_attended:
+        #     for client in selected_clients:
+        #         if client.id.startswith('late'):
+        #             has_lated = True
+        #             break
+        # if not has_lated:
+        #     for client in self.clients:
+        #         if client.id.startswith('late'):
+        #             selected_clients.append(client)
         return selected_clients
     
     def send_models(self):

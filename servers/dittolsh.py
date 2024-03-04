@@ -8,6 +8,7 @@ from threading import Thread
 import torch.nn.functional as F
 import utils.dlg as dlg
 from algorithm.sim.lsh import SignRandomProjections
+from models.optimizer.ditto import PersonalizedGradientDescent
 from clients.lshditto import LSHDittoClient as ClientLshash
 import time
 from fedlog.logbooker import slogger
@@ -51,21 +52,44 @@ class LSHDittoServer(Server):
             self.sketches[client.id] = client.minisketch
             self.clients_ids_map[client.id] = i
         slogger.info('total calculating time {:.3f}s'.format(time.time() - start_time))
-            
+
+    def select_clients(self,new_attend_clients):
+        slogger.info('Starting select clients for server')
+
+        if self.random_clients_selected:
+            #random number of attend clients
+            self.current_num_join_clients = np.random.choice(int(self.num_original_clients * self.join_ratio),self.num_original_clients+1)
+        else:
+            #static number of attend clients
+            self.current_num_join_clients = self.num_join_clients
+        #That guarantee the late clients can be selected first time.
+        selected_clients = list(np.random.choice(self.clients,int(self.current_num_join_clients)-len(new_attend_clients),replace=False))
+        selected_clients.extend(new_attend_clients)
+        return selected_clients
+    
+    def evaluate_generalized(self,new_attend_clients):
+        for _,c in enumerate(new_attend_clients):
+            self.clusters[self.clients_map_clusters[c.id]].test_personal_model_generalized(c)
+                
     def train(self):
+        is_lated_attend = False
+        new_attend_clients = []
         slogger.debug('server','starting to train')
         for i in range(self.global_rounds+1):
             s_t = time.time()
-            self.selected_clients = self.select_clients()
+            self.selected_clients = self.select_clients(new_attend_clients)
             self.send_models()
-
+            
             if i%self.eval_gap == 0:
                 slogger.debug(f"-------------Round number: {i}-------------")
                 slogger.debug("start evaluating model")
                 self.evaluate()
                 slogger.debug('Evaluating personalized models')
                 self.evaluate_personalized()
-
+            elif len(new_attend_clients):
+                # If there are some new clients join, need to test the generalization firstly.
+                self.evaluate_generalized()
+                
             for client in self.selected_clients:
                 client.train()
                 client.train_personalized()
@@ -97,6 +121,7 @@ class LSHDittoServer(Server):
                 #it need to be fine-tuned before attending
                 self.fine_tuning_new_clients(new_attend_clients)
                 self.clients.extend(new_attend_clients)
+                self.is_late_attended = True
         # self.print_(max(self.rs_test_acc), max(
         #     self.rs_train_acc), min(self.rs_train_loss))
         print(max(self.rs_test_acc))
@@ -165,6 +190,7 @@ class LSHDittoServer(Server):
         for new_client in new_clients:
             which_cluster = self.clients_map_clusters[new_client.id]
             new_client.set_parameters(self.clusters[int(which_cluster)].cluster_model)
+            # new_client.model = copy.deepcopy(self.clusters[int(which_cluster)].cluster_model)
             optimizer = torch.optim.SGD(new_client.model.parameters(),lr = self.learning_rate)
             lossFunc = torch.nn.CrossEntropyLoss()
             train_loader = new_client.load_train_data()
@@ -183,6 +209,8 @@ class LSHDittoServer(Server):
                     loss.backward()
                     optimizer.step()
             new_client.model_person = copy.deepcopy(new_client.model)
+            new_client.optimizer_personl = PersonalizedGradientDescent(
+                new_client.model_person.parameters(), lr=new_client.learning_rate, mu=new_client.mu)
     
     def evaluate_personalized(self,acc=None,loss=None):
         test_metrics_res = self.test_metrics_personalized()
