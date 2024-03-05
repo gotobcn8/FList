@@ -86,9 +86,11 @@ class LSHDittoServer(Server):
                 self.evaluate()
                 slogger.debug('Evaluating personalized models')
                 self.evaluate_personalized()
-            elif len(new_attend_clients):
+            elif len(self.late_clients) > 0:
+                # if len(self.late_clients) > 0 ,still new attend clients
+                # if len(self.late_clients) == 0, no new attend clients
                 # If there are some new clients join, need to test the generalization firstly.
-                self.evaluate_generalized()
+                self.evaluate_generalized(new_attend_clients)
                 
             for client in self.selected_clients:
                 client.train()
