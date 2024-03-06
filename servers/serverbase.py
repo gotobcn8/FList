@@ -58,7 +58,7 @@ class Server:
         self.algorithm = args['algorithm']
         self.eval_gap = args['eval_gap']
         self.budget = []
-        
+        self.clusters = []
         if 'save_dir' in args.keys() and args['save_dir'] != '':
             self.save_models_dir = args['save_dir']
             
@@ -99,16 +99,6 @@ class Server:
             #static number of attend clients
             self.current_num_join_clients = self.num_join_clients
         selected_clients = list(np.random.choice(self.clients,int(self.current_num_join_clients),replace=False))
-        # has_lated = False
-        # if is_late_attended:
-        #     for client in selected_clients:
-        #         if client.id.startswith('late'):
-        #             has_lated = True
-        #             break
-        # if not has_lated:
-        #     for client in self.clients:
-        #         if client.id.startswith('late'):
-        #             selected_clients.append(client)
         return selected_clients
     
     def send_models(self):
@@ -144,14 +134,12 @@ class Server:
         flogger.info(f"rs_test_acc:{self.rs_test_acc},rs_test_auc:{self.rs_test_auc},rs_train_loss:{self.rs_train_loss}")
     
     def test_metrics(self):
-        if self.eval_new_clients and self.num_new_clients > 0:
-            self.fine_tuning_new_clients()
-            return self.test_metrics_new_clients()
-
         num_samples = []
         tot_correct = []
         tot_auc = []
         for c in self.clients:
+            if c.id.startswith('late'):
+                self.clusters[self.clients_map_clusters[c.id]].test_model_generalized(c)
             ct,ns,auc = c.test_metrics()
             tot_correct.append(ct * 1.0)
             tot_auc.append(auc * ns)
@@ -287,3 +275,27 @@ class Server:
             )
             self.late_clients.append(client)
         self.all_clients.extend(self.late_clients)
+    
+    def cluster_receive_models(self):
+        if len(self.clusters) <= 0:
+            return
+        self.cluster_attend_clients = dict()
+        for attend_client in self.selected_clients:
+            cluster_id = self.clients_map_clusters[attend_client.id]
+            if cluster_id not in self.cluster_attend_clients:
+                self.cluster_attend_clients[cluster_id] = []
+            #attender serial id in this round
+            self.cluster_attend_clients[cluster_id].append(attend_client)
+        
+        for cluster in self.clusters:
+            if cluster.id in self.cluster_attend_clients.keys():
+                cluster.receive_models(self.cluster_attend_clients[cluster.id])
+    
+    def cluster_aggregate_parameters(self):
+        # for cluster in self.clusters:
+        #     cluster.aggregate_parameters()
+        if len(self.clusters) <= 0:
+            slogger.info('No clusters in server')
+            return
+        for cluster_id in self.cluster_attend_clients.keys():
+            self.clusters[cluster_id].aggregate_parameters()

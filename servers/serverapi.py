@@ -2,6 +2,8 @@ from .serverbase import Server
 from .ditto import Ditto
 from .lsh import LSHServer
 from .dittolsh import LSHDittoServer
+from .cfl import ClusterFL
+
 
 def get_server(name:str,args)->Server:
     if name == 'Ditto':
@@ -10,3 +12,5 @@ def get_server(name:str,args)->Server:
         return LSHDittoServer(args)
     elif 'lsh' in name:
         return LSHServer(args)
+    elif name == 'cfl':
+        return ClusterFL(args)

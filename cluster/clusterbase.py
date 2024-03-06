@@ -23,8 +23,8 @@ class ClusterBase():
             self.add_parameters(w,client_model)
     
     def add_parameters(self,w,client_model):
-        for server_param,client_param in zip(self.cluster_model.parameters(),client_model.parameters()):
-            server_param.data += client_param.data.clone() * w
+        for cluster_param,client_param in zip(self.cluster_model.parameters(),client_model.parameters()):
+            cluster_param.data += client_param.data.clone() * w
     
     def receive_models(self,selected_clients):
         if len(selected_clients) <= 0:
@@ -52,7 +52,7 @@ class ClusterBase():
         for i,w in enumerate(self.uploaded_weights):
             self.uploaded_weights[i] = w / total_samples
     
-    def test_personal_model_generalized(self,test_client):
+    def test_model_generalized(self,test_client):
         '''
         This function is used to test the personalized model generalized ability in cluster. 
         '''
@@ -63,12 +63,13 @@ class ClusterBase():
             return
         if test_client.train_time['rounds'] == 0:
             clogger.info('this is first time to test the generalization of {}'.format(test_client.id))
+
         for client in self.clients:
             if test_client.id == client.id:
                 continue
-            test_acc,test_num,auc = client.test_other_personalized_model(test_client.model)
+            test_acc,test_num,auc = client.test_other_model(test_client.model)
             clogger.info('cluster {} new coming client {} be tested client {}'.format(self.id,test_client.id,client.id))
-            clogger.info('test_accuracy:{}%% test_num:{} test_auc:{}'.format(test_acc*100.0/test_num,test_num,auc))
+            clogger.info('test_accuracy:{:.3f}% test_num:{} correct_num:{} test_auc:{}'.format((test_acc*100.0)/test_num,test_num,test_acc,auc))
             total_test_num += test_num
             avg_test_acc += test_acc
             avg_auc += auc*test_num
@@ -76,5 +77,5 @@ class ClusterBase():
         # if avg_test_acc == 0:
         avg_test_acc =  (avg_test_acc * 1.0) / total_test_num 
         avg_auc =  (avg_auc * 1.0) / total_test_num
-        clogger.info('-------avg_acc:{:.3f}%% avg_auc:{:.3f}'.format(avg_test_acc*100,avg_auc))
+        clogger.info('-------avg_acc:{:.3f}% avg_auc:{:.3f}'.format(avg_test_acc*100,avg_auc))
         

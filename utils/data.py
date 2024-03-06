@@ -76,3 +76,10 @@ def read_client_data_text(dataset,idx,dir,is_train):
     
     predict_data = [((x,lens),y) for x,lens,y in zip(X_list,X_list_lens,y_list)]
     return predict_data
+
+def flatten(source):
+    return torch.cat([value.flatten() for value in source.values()])
+
+def copy(target, source):
+    for name in target:
+        target[name].data = source[name].data.clone()

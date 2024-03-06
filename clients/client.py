@@ -8,6 +8,7 @@ from loguru import logger
 from sklearn import metrics
 import os
 import utils.data as data
+import torch.nn.functional as F
 import time
 import const.constants as const
  
@@ -175,3 +176,35 @@ class ClientBase:
     def set_parameters(self, model):
         for new_param, old_param in zip(model.parameters(), self.model.parameters()):
             old_param.data = new_param.data.clone()
+    
+    def test_other_model(self,other_personalized_model):
+        testloaderfull = self.load_test_data()
+      
+        other_personalized_model.eval()
+      
+        test_acc = 0
+        test_num = 0
+        y_prob = []
+        y_true = []
+        
+        with torch.no_grad():
+            for x,y in testloaderfull:
+                if isinstance(x, list):
+                    x[0] = x[0].to(self.device)
+                    x = x[0]
+                else:
+                    x = x.to(self.device)
+                y = y.to(self.device)
+                output = other_personalized_model(x)
+                
+                test_acc += (torch.sum(torch.argmax(output,dim=1) == y)).item()
+                test_num += y.shape[0]
+                
+                y_prob.append(F.softmax(output,dim=1).detach().cpu().numpy())
+                y_true.append(label_binarize(y.detach().cpu().numpy(),classes = np.arange(self.num_classes)))
+        
+        y_prob = np.concatenate(y_prob,axis=0)
+        y_true = np.concatenate(y_true,axis=0)
+        
+        auc = metrics.roc_auc_score(y_true,y_prob,average='micro')
+        return test_acc,test_num,auc

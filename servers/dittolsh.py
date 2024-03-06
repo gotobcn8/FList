@@ -67,14 +67,14 @@ class LSHDittoServer(Server):
         selected_clients.extend(new_attend_clients)
         return selected_clients
     
-    def evaluate_generalized(self,new_attend_clients):
+    def evaluate_generalized(self,new_attend_clients=[]):
         for _,c in enumerate(new_attend_clients):
-            self.clusters[self.clients_map_clusters[c.id]].test_personal_model_generalized(c)
+            self.clusters[self.clients_map_clusters[c.id]].test_model_generalized(c)
                 
     def train(self):
-        is_lated_attend = False
         new_attend_clients = []
         slogger.debug('server','starting to train')
+        is_new_joined = False
         for i in range(self.global_rounds+1):
             s_t = time.time()
             self.selected_clients = self.select_clients(new_attend_clients)
@@ -86,9 +86,8 @@ class LSHDittoServer(Server):
                 self.evaluate()
                 slogger.debug('Evaluating personalized models')
                 self.evaluate_personalized()
-            elif len(self.late_clients) > 0:
-                # if len(self.late_clients) > 0 ,still new attend clients
-                # if len(self.late_clients) == 0, no new attend clients
+            #whether there are late clients still existed.
+            elif is_new_joined:
                 # If there are some new clients join, need to test the generalization firstly.
                 self.evaluate_generalized(new_attend_clients)
                 
@@ -123,7 +122,9 @@ class LSHDittoServer(Server):
                 #it need to be fine-tuned before attending
                 self.fine_tuning_new_clients(new_attend_clients)
                 self.clients.extend(new_attend_clients)
-                self.is_late_attended = True
+                is_new_joined = True
+            else:
+                is_new_joined = False
         # self.print_(max(self.rs_test_acc), max(
         #     self.rs_train_acc), min(self.rs_train_loss))
         print(max(self.rs_test_acc))
@@ -142,11 +143,6 @@ class LSHDittoServer(Server):
     
     # def select_clients(self):
     #     selected_clients = []
-    def cluster_aggregate_parameters(self):
-        # for cluster in self.clusters:
-        #     cluster.aggregate_parameters()
-        for cluster_id in self.cluster_attend_clients.keys():
-            self.clusters[cluster_id].aggregate_parameters()
     
     def cluster_receive_models(self):
         self.cluster_attend_clients = dict()
@@ -250,8 +246,7 @@ class LSHDittoServer(Server):
         ids = [0] * len(self.clients)
         for i,c in enumerate(self.clients):
             if c.id.startswith('late'):
-                self.clusters[self.clients_map_clusters[c.id]].test_personal_model_generalized(c)
-                continue
+                self.clusters[self.clients_map_clusters[c.id]].test_model_generalized(c)
             c_corrects,c_num_samples,c_auc = c.test_metrics()
             total_corrects.append(c_corrects*1.0)
             total_auc.append(c_auc * c_num_samples)
